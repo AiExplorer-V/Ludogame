@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Ludo Royale — Character Walk Edition</title>
+<style>
+:root{
+ --red:#e33143;--green:#18a967;--blue:#238bd0;--yellow:#e4b51a;
+ --bg:#05090e;--panel:#0b1725;--gold:#ffd15c;--line:#aab0b4;
+}
+*{box-sizing:border-box}html,body{margin:0;background:#05090e;color:#fff;font-family:Inter,Arial,sans-serif}
+body{background:radial-gradient(circle at 50% -10%,#183a59,#07111c 42%,#030609 100%) fixed}
+.app{max-width:1180px;margin:auto;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}
+.logo{font-size:clamp(28px,6vw,48px);font-weight:950;letter-spacing:3px}.logo b{color:var(--gold)}
+.tag{font-size:10px;letter-spacing:3px;color:#99a8b8;margin-top:5px}
+.actions{display:flex;gap:9px}button{border:0;border-radius:15px;padding:12px 16px;background:#15253a;color:#fff;font-weight:900;cursor:pointer}
+button.gold{background:linear-gradient(135deg,#ffe178,#d68b1b);color:#251600}button:disabled{opacity:.45}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 315px;gap:16px}
+.shell{padding:8px;border-radius:27px;background:#102238;border:1px solid #ffffff1c;box-shadow:0 22px 60px #0009}
+.board{position:relative;width:100%;aspect-ratio:1;display:grid;grid-template:repeat(15,1fr)/repeat(15,1fr);overflow:hidden;border-radius:20px;background:#eee}
+.cell{background:#f8f8f5;border:1px solid #9fa4a7;z-index:1}.blocked{background:#1a2027!important;border-color:#303841!important;box-shadow:inset 0 0 13px #0008}.track{background:#fff}.safe{display:grid;place-items:center}.safe:after{content:"★";font-size:clamp(10px,2vw,19px);color:#7c858d}
+.lane.green{background:#a7e0c1}.lane.blue{background:#a7d6ed}.lane.red{background:#f1abb3}.lane.yellow{background:#f7df79}
+.entry.green{background:#15975b!important}.entry.blue{background:#258ac8!important}.entry.red{background:#d92739!important}.entry.yellow{background:#d9a90b!important}
+.home{position:absolute;width:40%;height:40%;padding:7%;display:grid;grid-template:1fr 1fr/1fr 1fr;gap:20%;z-index:5}
+.home:before{content:"";position:absolute;inset:11%;background:#fff;border:2px solid #cfd4d5;z-index:-1}
+.home.yellow{left:0;top:0;background:var(--yellow)}.home.green{right:0;top:0;background:var(--green)}
+.home.red{left:0;bottom:0;background:var(--red)}.home.blue{right:0;bottom:0;background:var(--blue)}
+.slot{border-radius:50%;background:#fdfdfd;border:2px solid #777;box-shadow:inset 0 2px 5px #0003;z-index:2}
+.center{position:absolute;left:40%;top:40%;width:20%;height:20%;z-index:9;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:conic-gradient(from -45deg,var(--green) 0 25%,var(--blue) 0 50%,var(--yellow) 0 75%,var(--red) 0)}
+.arrow{position:absolute;z-index:14;font-size:clamp(18px,3vw,28px);font-weight:950;color:#5f6b73;text-shadow:0 1px 0 #fff;pointer-events:none}
+.token{position:absolute;z-index:40;display:grid;place-items:center;transition:left .12s linear,top .12s linear,width .2s,height .2s,transform .2s;filter:drop-shadow(0 4px 4px #000c);isolation:isolate}.character{width:92%;height:94%;position:relative;animation:bob 1.1s ease-in-out infinite;filter:drop-shadow(0 1px 1px #0008)}
+/* Full-body, single-colour character tokens — no overlapping circular badge */
+.head,.hair,.body,.arm,.leg{position:absolute;display:block;background:currentColor;border:0!important;box-shadow:none!important}
+.token.green{color:var(--green)}.token.blue{color:var(--blue)}.token.red{color:var(--red)}.token.yellow{color:var(--yellow)}
+.head{width:31%;height:31%;left:34.5%;top:3%;border-radius:50%;outline:1px solid #ffffff66}
+.hair{display:none}.body{width:46%;height:42%;left:27%;top:30%;border-radius:40% 40% 20% 20%;outline:1px solid #ffffff55}
+.arm{width:14%;height:36%;top:35%;border-radius:20px;transform-origin:top center}.arm.l{left:20%;transform:rotate(22deg)}.arm.r{right:20%;transform:rotate(-22deg)}
+.leg{width:16%;height:30%;top:67%;border-radius:12px;transform-origin:top center}.leg.l{left:32%}.leg.r{right:32%}
+.token:after{content:'';position:absolute;inset:4%;border-radius:12px;border:1px solid rgba(255,255,255,.55);opacity:.42;pointer-events:none}
+.walking .character{animation:walkbob .18s linear infinite}.walking .leg.l{animation:legL .18s linear infinite}.walking .leg.r{animation:legR .18s linear infinite}.walking .arm.l{animation:legR .18s linear infinite}.walking .arm.r{animation:legL .18s linear infinite}
+@keyframes bob{50%{transform:translateY(-3%)}}@keyframes walkbob{50%{transform:translateY(-10%)}}@keyframes legL{50%{transform:rotate(30deg)}}@keyframes legR{50%{transform:rotate(-30deg)}}
+.selectable{filter:drop-shadow(0 0 9px #fff) drop-shadow(0 0 17px #ffe56c);animation:selectPulse .8s infinite;cursor:pointer}@keyframes selectPulse{50%{transform:scale(1.16)}}
+.side{display:flex;flex-direction:column;gap:12px}.card{background:linear-gradient(145deg,#0d1a29,#07101a);border:1px solid #ffffff16;border-radius:21px;padding:17px}
+.k{font-size:10px;letter-spacing:3px;color:#8da0b2}.player{font-size:26px;font-weight:950;margin:7px 0}.status{color:#cbd5df;line-height:1.55}
+.dicecard{text-align:center}.dice{width:96px;height:96px;margin:12px auto;border-radius:24px;background:linear-gradient(145deg,#fff,#b9c3cc);color:#14202c;display:grid;place-items:center;font-size:52px;box-shadow:0 12px 25px #0008;cursor:pointer}.rolling{animation:spin .65s ease}@keyframes spin{50%{transform:rotate(180deg) scale(.76)}100%{transform:rotate(360deg)}}
+.rankRow{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #ffffff12;font-size:13px}.badge{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#1b2b3d;font-weight:900}
+.rules{font-size:13px;line-height:1.7;color:#c9d3dd}#toast{position:fixed;z-index:100;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;transition:.25s;background:#16304a;border:1px solid #ffffff30;border-radius:999px;padding:11px 18px;max-width:90vw;text-align:center}#toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}.turn{grid-column:1/-1}}@media(max-width:540px){.app{padding:10px}.side{display:block}.side .card{margin-bottom:10px}.actions button{padding:10px 12px}}
+
+
+
+
+/* ONLINE FRIEND LOBBY */
+.modebar{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 14px}.modebtn{flex:1;min-width:150px}.modebtn.active{outline:2px solid var(--gold);box-shadow:0 0 22px #ffd15c44}.lobby{display:none;margin-bottom:14px}.lobby.show{display:block}.lobbyActions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.lobbyCode{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;color:#a9c9e7}.onlineDot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#4ade80;box-shadow:0 0 12px #4ade80;margin-right:7px}.exitModal{position:fixed;inset:0;z-index:200;display:none;place-items:center;padding:20px;background:#000a;backdrop-filter:blur(8px)}.exitModal.show{display:grid}.exitBox{width:min(420px,100%);background:linear-gradient(145deg,#14263a,#09121d);border:1px solid #ffffff2a;border-radius:24px;padding:24px;box-shadow:0 30px 90px #000d;text-align:center}.exitBox h2{margin:0 0 10px;font-size:25px}.exitBox p{margin:0;color:#c7d3df;line-height:1.6}.exitActions{display:flex;gap:10px;justify-content:center;margin-top:20px}.exitActions button{min-width:120px}.playersList{display:grid;gap:6px;margin-top:10px}.playerChip{padding:9px 11px;border-radius:11px;background:#14263a;border:1px solid #ffffff18;font-weight:800;font-size:13px}.hostOnly{display:none}.hostOnly.show{display:block}.waiting{color:#ffd15c;font-weight:800}
+</style><script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<div class="app">
+<header><div><div class="logo">LUDO <b>ROYALE</b></div><div class="tag">CHARACTER WALK • ORIGINAL LUDO ROUTES • CLASSIC DICE • RANKING MODE</div></div>
+<div class="actions"><button onclick="inviteGame()">INVITE</button><button class="gold" onclick="requestNewGame()">NEW GAME</button></div></header>
+<div class="layout">
+ <div class="shell"><div id="board" class="board"></div></div>
+ <div class="side">
+  <div class="card turn"><div class="k">CURRENT TURN</div><div id="playerName" class="player">YOU • GREEN</div><div id="status" class="status">Roll the dice.</div></div>
+  <div class="card dicecard"><div class="k">DICE CONTROL</div><div id="dice" class="dice" onclick="rollDice()">⚄</div><button id="rollBtn" class="gold" onclick="rollDice()">ROLL THE DICE</button></div>
+  <div class="card"><div class="k">GAME MODE</div><div class="modebar"><button id="botsModeBtn" class="modebtn gold active" onclick="requestSetGameMode('bots')">🤖 PLAY WITH BOTS</button><button id="friendsModeBtn" class="modebtn" onclick="requestSetGameMode('friends')">👥 PLAY WITH FRIENDS</button></div><div id="lobby" class="lobby"><div id="lobbyTitle" class="player">FRIEND LOBBY</div><div id="lobbyStatus" class="status">Create a private room, invite friends, then start together.</div><div id="inviteCode" class="lobbyCode"></div><div id="playersList" class="playersList"></div><div class="lobbyActions"><button id="createRoomBtn" class="gold" onclick="requestCreateFriendRoom()">CREATE ROOM</button><button id="copyRoomBtn" onclick="inviteGame()">COPY INVITE</button><button id="startRoomBtn" class="gold hostOnly" onclick="startFriendGame()">START GAME</button></div></div></div>
+  <div class="card"><div class="k">LIVE RANKINGS</div><div id="ranks"><div class="rankRow"><div class="badge">—</div>Game in progress</div></div></div>
+  <div class="card rules"><b>What changed</b><br>🔊 Dice, entry, louder movement, safe-zone, capture and final-home sound effects added.<br>🎲 One roll per turn — only 6, capture, or final home gives an extra roll.<br>⭐ The yellow-side safe zone is moved to the marked box; other safe zones stay unchanged, and landing/entry boxes are capture-protected.<br>🎨 Character tokens are full-body single-colour characters with no overlapping circle.<br>👥 Multiple characters on one box automatically shrink and spread out.<br>🏆 Game continues until all four players receive ranks 1–4.<br>🚀 In bot mode, once three colours have entered, the last colour is assisted into play within the next few turns.</div>
+ </div>
+</div></div><div id="toast"></div>
+<div id="exitModal" class="exitModal" role="dialog" aria-modal="true" aria-labelledby="exitTitle"><div class="exitBox"><h2 id="exitTitle">Exit this match?</h2><p>Your current game is still in progress. Are you sure you want to leave or start a new game?</p><div class="exitActions"><button onclick="cancelExit()">NO, STAY</button><button class="gold" onclick="confirmExit()">YES, EXIT</button></div></div></div>
+<script>
+const board=document.getElementById('board');
+const COLORS=['green','blue','red','yellow'];
+const CSSVAR={green:'--green',blue:'--blue',red:'--red',yellow:'--yellow'};
+const ENTRY={green:3,blue:16,red:29,yellow:42};
+const PRE={green:1,blue:14,red:27,yellow:40};
+// Four protected safe squares. The yellow-side square remains at the user-marked position.
+const SAFE_COORDS=['6,3','11,6','3,8','8,11'];
+const RING=[[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1]];
+const LANES={green:[[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],blue:[[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],red:[[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],yellow:[[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]]};
+const FACES=['⚀','⚁','⚂','⚃','⚄','⚅'];
+const MOVE_MS=210;
+
+let routes={}, MAIN_COUNT={};
+let tokens=[];
+let current=0,lastRoll=0,busy=false,gameOver=false,gameStarted=true;
+let finishedColors=[],ranks=[];
+let gameMode='bots',localColor='green',activeColors=[...COLORS];
+let peer=null,connections=[],hostConn=null,isHost=false,roomId=null,friendPlayers={};
+let remoteRollTimer=null,remoteRollNonce=0,pendingExitAction=null;
+let rollConsumed=false,consecutiveSixes=0;
+let audioCtx=null,audioUnlocked=false;
+let openingAssist={armed:false,missing:null,turns:0};
+let joinAttempt=0,joinConnecting=false;
+
+/* Replaceable procedural sound map. Change these values in one place to change the game sounds. */
+const SFX={
+  dice:[[170,.06,'square',.055,0],[310,.08,'square',.05,.08],[520,.12,'triangle',.045,.18]],
+  move:[[260,.06,'triangle',.115,0],[430,.045,'sine',.07,.012]],
+  safe:[[620,.09,'sine',.06,0],[780,.13,'sine',.055,.09]],
+  capture:[[150,.12,'sawtooth',.075,0],[95,.17,'square',.065,.09]],
+  home:[[523,.08,'sine',.06,0],[659,.08,'sine',.06,.1],[784,.17,'sine',.07,.2]],
+  enter:[[360,.07,'triangle',.055,0],[480,.1,'triangle',.06,.08]],
+  victory:[[523,.09,'sine',.07,0],[659,.09,'sine',.07,.11],[784,.09,'sine',.08,.22],[1046,.2,'triangle',.075,.34]]
+};
+
+function unlockAudio(){
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();audioUnlocked=true}catch(e){}
+}
+function tone(freq,dur=.08,type='sine',gain=.055,delay=0){
+  if(!audioUnlocked)return;unlockAudio();if(!audioCtx)return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=audioCtx.currentTime+delay;
+  o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(gain,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(audioCtx.destination);o.start(t);o.stop(t+dur+.025);
+}
+function playSfx(name,remote=false){
+  if(!remote&&gameMode==='friends'&&isHost)broadcastEvent({type:'sfx',name});
+  (SFX[name]||[]).forEach(a=>tone(...a));
+}
+addEventListener('pointerdown',unlockAudio,{once:true});
+
+function buildRoutes(){
+  for(const c of COLORS){
+    const main=[];let i=ENTRY[c];
+    while(true){main.push(RING[i]);if(i===PRE[c])break;i=(i+1)%RING.length}
+    MAIN_COUNT[c]=main.length;
+    routes[c]=main.concat(LANES[c]);
+  }
+}
+function buildBoard(){
+  const ringMap=new Map(RING.map((p,i)=>[p.join(','),i])),laneMap=new Map();
+  Object.entries(LANES).forEach(([c,a])=>a.forEach(p=>laneMap.set(p.join(','),c)));
+  const blocked=new Set(['6,6','8,6','6,8','8,8']);
+  for(let y=0;y<15;y++)for(let x=0;x<15;x++){
+    const e=document.createElement('div'),key=x+','+y;e.className='cell';
+    if(blocked.has(key))e.classList.add('blocked');
+    if(ringMap.has(key)){
+      e.classList.add('track');if(SAFE_COORDS.includes(key))e.classList.add('safe');
+      for(const c of COLORS)if(ENTRY[c]===ringMap.get(key))e.classList.add('entry',c);
+    }
+    if(laneMap.has(key))e.classList.add('lane',laneMap.get(key));
+    e.style.gridColumn=x+1;e.style.gridRow=y+1;board.appendChild(e);
+  }
+  for(const c of ['red','green','yellow','blue']){
+    const h=document.createElement('div');h.className='home '+c;h.id='home-'+c;
+    for(let i=0;i<4;i++){const s=document.createElement('div');s.className='slot';h.appendChild(s)}board.appendChild(h);
+  }
+  const center=document.createElement('div');center.className='center';board.appendChild(center);
+  [['green',7,0,'↓'],['blue',14,7,'←'],['red',7,14,'↑'],['yellow',0,7,'→']].forEach(([c,x,y,a])=>{
+    const e=document.createElement('div');e.className='arrow '+c;e.textContent=a;e.style.left=(x/15*100+1.9)+'%';e.style.top=(y/15*100+.6)+'%';board.appendChild(e)
+  });
+}
+function characterHTML(){return `<div class="character"><i class="head"></i><i class="hair"></i><i class="body"></i><i class="arm l"></i><i class="arm r"></i><i class="leg l"></i><i class="leg r"></i></div>`}
+function createTokens(){
+  tokens=[];
+  COLORS.forEach(color=>{for(let i=0;i<4;i++){
+    const e=document.createElement('div');e.className='token '+color;e.innerHTML=characterHTML();
+    const t={id:color+'-'+i,color,index:i,progress:-1,state:'BASE',done:false,rank:null,el:e};
+    e.onclick=()=>choose(t);tokens.push(t);board.appendChild(e);
+  }});
+  setTimeout(layoutAll,80);
+}
+function homePosition(t){const s=document.querySelectorAll('#home-'+t.color+' .slot')[t.index],b=board.getBoundingClientRect(),r=s.getBoundingClientRect();return{x:r.left-b.left+r.width*.11,y:r.top-b.top+r.height*.05,w:r.width*.78,h:r.height*.92}}
+function rawPosition(t){if(t.progress<0)return homePosition(t);const u=board.clientWidth/15,p=routes[t.color][t.progress];return{x:p[0]*u+u*.10,y:p[1]*u+u*.04,w:u*.80,h:u*.92}}
+function logicalState(t){if(t.done)return'FINISHED';if(t.progress<0)return'BASE';if(t.progress>=MAIN_COUNT[t.color])return'HOME_PATH';const key=routes[t.color][t.progress].join(',');return SAFE_COORDS.includes(key)||landingKeys().includes(key)?'SAFE_ZONE':'ACTIVE_MAIN_BOARD'}
+function cellKey(t){return t.progress<0?'home:'+t.color+':'+t.index:t.done?'done:'+t.color:routes[t.color][t.progress].join(',')}
+function layoutAll(){
+  const groups={};tokens.filter(t=>!t.done&&activeColors.includes(t.color)).forEach(t=>{const k=cellKey(t);(groups[k]??=[]).push(t)});
+  Object.values(groups).forEach(g=>g.forEach((t,i)=>{
+    const p=rawPosition(t);if(t.progress<0){Object.assign(t.el.style,{width:p.w+'px',height:p.h+'px',left:p.x+'px',top:p.y+'px'});return}
+    let scale=1,ox=0,oy=0;
+    if(g.length===2){scale=.62;ox=(i?1:-1)*p.w*.19}
+    else if(g.length===3){scale=.52;const q=[[-.22,-.18],[.22,-.18],[0,.24]][i];ox=q[0]*p.w;oy=q[1]*p.h}
+    else if(g.length>=4){scale=.45;const q=[[-.22,-.22],[.22,-.22],[-.22,.22],[.22,.22]][i%4];ox=q[0]*p.w;oy=q[1]*p.h}
+    const w=p.w*scale,h=p.h*scale;Object.assign(t.el.style,{width:w+'px',height:h+'px',left:(p.x+(p.w-w)/2+ox)+'px',top:(p.y+(p.h-h)/2+oy)+'px'});
+  }));
+}
+function landingKeys(){return COLORS.map(c=>RING[ENTRY[c]].join(','))}
+function isMainBoardToken(t){return !t.done&&t.progress>=0&&t.progress<MAIN_COUNT[t.color]}
+function boardKeyAt(t,progress=t.progress){return progress>=0&&progress<MAIN_COUNT[t.color]?routes[t.color][progress].join(','):null}
+function blockadeAtKey(key,exceptColor=null){
+  if(!key||SAFE_COORDS.includes(key)||landingKeys().includes(key))return null;
+  for(const c of activeColors){
+    if(c===exceptColor)continue;
+    const same=tokens.filter(t=>t.color===c&&isMainBoardToken(t)&&boardKeyAt(t)===key);
+    if(same.length===2)return {color:c,tokens:same};
+  }
+  return null;
+}
+function ownCountAtKey(color,key){return tokens.filter(t=>t.color===color&&isMainBoardToken(t)&&boardKeyAt(t)===key).length}
+function destinationProgress(t,roll){return t.progress<0?0:t.progress+roll}
+function pathKeysForMove(t,roll){
+  if(t.progress<0)return [boardKeyAt(t,0)];
+  const keys=[];const end=t.progress+roll;
+  for(let p=t.progress+1;p<=end;p++)if(p<MAIN_COUNT[t.color])keys.push(boardKeyAt(t,p));
+  return keys;
+}
+function canMoveToken(t,roll){
+  if(!activeColors.includes(t.color)||t.done||roll<1||roll>6)return false;
+  if(t.progress<0){
+    if(roll!==6)return false;
+    const key=boardKeyAt(t,0);return !blockadeAtKey(key,t.color);
+  }
+  const dest=t.progress+roll;
+  if(dest>routes[t.color].length-1)return false;
+  // An opponent blockade blocks both passing and landing on any main-board square.
+  for(const key of pathKeysForMove(t,roll))if(blockadeAtKey(key,t.color))return false;
+  if(dest<MAIN_COUNT[t.color]){
+    const key=boardKeyAt(t,dest);
+    if(ownCountAtKey(t.color,key)>=2)return false;
+  }
+  return true;
+}
+function validMoves(color,roll){
+  if(gameOver||finishedColors.includes(color)||!activeColors.includes(color))return[];
+  return tokens.filter(t=>t.color===color&&canMoveToken(t,roll));
+}
+function clearSelect(){tokens.forEach(t=>t.el.classList.remove('selectable'))}
+function activeColor(){return COLORS[current]}
+function isLocalTurn(){return activeColor()===localColor}
+function updateUI(){
+  const c=activeColor();
+  const label=gameMode==='bots'?(c==='green'?'YOU • GREEN':'COMPUTER • '+c.toUpperCase()):(isLocalTurn()?'YOU • '+c.toUpperCase():(friendPlayers[c]||'FRIEND')+' • '+c.toUpperCase());
+  const p=document.getElementById('playerName');p.textContent=label;p.style.color='var('+CSSVAR[c]+')';
+  const can=gameStarted&&!busy&&!gameOver&&!rollConsumed&&isLocalTurn()&&!finishedColors.includes(c);
+  document.getElementById('rollBtn').disabled=!can;document.getElementById('dice').style.opacity=can?'1':'.58';
+}
+
+function rollDice(){
+  unlockAudio();
+  if(!gameStarted||busy||gameOver||rollConsumed||!isLocalTurn()||finishedColors.includes(localColor))return;
+  if(gameMode==='friends'&&!isHost){
+    if(!hostConn?.open)return;
+    rollConsumed=true;busy=true;updateUI();document.getElementById('status').textContent='Rolling the dice…';
+    hostConn.send({type:'action',action:'roll',color:localColor});return;
+  }
+  authoritativeRoll();
+}
+function broadcastEvent(data){if(gameMode==='friends'&&isHost)connections.forEach(c=>c.open&&c.send(data))}
+function authoritativeRoll(forcedValue=null){
+  if(rollConsumed||busy||gameOver)return;
+  busy=true;rollConsumed=true;const color=activeColor(),nonce=++remoteRollNonce;
+  playSfx('dice');if(gameMode==='friends')broadcastEvent({type:'roll-start',color,nonce});
+  animateRoll(v=>{
+    lastRoll=v;if(gameMode==='friends')broadcastEvent({type:'roll-result',color,value:v,nonce});
+    if(v===6){consecutiveSixes++;if(consecutiveSixes===3){
+      busy=false;lastRoll=0;consecutiveSixes=0;clearSelect();
+      document.getElementById('status').textContent=color.toUpperCase()+' rolled three consecutive 6s. Turn cancelled!';
+      showToast('🚫 THIRD SIX — TURN LOST!');broadcastState();setTimeout(nextTurn,700);return;
+    }}else consecutiveSixes=0;
+    afterRoll();
+  },forcedValue);
+}
+function animateRoll(done,forcedValue=null){
+  unlockAudio();const d=document.getElementById('dice');d.classList.remove('rolling');void d.offsetWidth;d.classList.add('rolling');
+  const it=setInterval(()=>d.textContent=FACES[Math.floor(Math.random()*6)],55);
+  setTimeout(()=>{clearInterval(it);const v=forcedValue||Math.floor(Math.random()*6)+1;d.textContent=FACES[v-1];d.classList.remove('rolling');showToast('🎲 '+activeColor().toUpperCase()+' rolled '+v);done(v)},650);
+}
+function animateRemoteRoll(color){
+  const d=document.getElementById('dice');if(remoteRollTimer)clearInterval(remoteRollTimer);d.classList.remove('rolling');void d.offsetWidth;d.classList.add('rolling');
+  document.getElementById('status').textContent=(friendPlayers[color]||color.toUpperCase())+' is rolling the dice…';
+  remoteRollTimer=setInterval(()=>d.textContent=FACES[Math.floor(Math.random()*6)],55);
+}
+function finishRemoteRoll(value,color){
+  if(remoteRollTimer){clearInterval(remoteRollTimer);remoteRollTimer=null}
+  const d=document.getElementById('dice');d.textContent=FACES[Math.max(0,value-1)];d.classList.remove('rolling');showToast('🎲 '+color.toUpperCase()+' rolled '+value);
+}
+function afterRoll(){
+  const c=activeColor(),m=validMoves(c,lastRoll);
+  if(!m.length){
+    busy=false;document.getElementById('status').textContent=`${c.toUpperCase()} rolled ${lastRoll}. No legal move.`;broadcastState();setTimeout(nextTurn,700);return;
+  }
+  busy=false;
+  if(isLocalTurn()){
+    document.getElementById('status').textContent=lastRoll===6?'You rolled 6! Choose a character.':'Choose a glowing character.';
+    m.forEach(t=>t.el.classList.add('selectable'));updateUI();broadcastState();
+  }else if(gameMode==='bots'){
+    document.getElementById('status').textContent=c.toUpperCase()+' is choosing a move…';updateUI();setTimeout(()=>moveCharacter(chooseBotMove(m)),420);
+  }else{
+    document.getElementById('status').textContent=(friendPlayers[c]||'FRIEND')+' is choosing a character…';updateUI();broadcastState();
+  }
+}
+function chooseBotMove(moves){
+  let best=[],scoreBest=-1e9;
+  for(const t of moves){
+    const d=destinationProgress(t,lastRoll);let score=0;
+    if(t.progress<0)score+=20;
+    if(d===routes[t.color].length-1)score+=120;
+    const key=d<MAIN_COUNT[t.color]?boardKeyAt(t,d):null;
+    if(key&&SAFE_COORDS.includes(key))score+=30;
+    if(key&&!isProtectedSquare(key)){
+      const enemies=tokens.filter(o=>o.color!==t.color&&isMainBoardToken(o)&&boardKeyAt(o)===key);
+      if(enemies.length===1)score+=90;
+      if(ownCountAtKey(t.color,key)===1)score+=24;
+    }
+    score+=d*.35+Math.random()*6;
+    if(score>scoreBest+1e-6){scoreBest=score;best=[t]}else if(Math.abs(score-scoreBest)<1e-6)best.push(t);
+  }
+  return best[Math.floor(Math.random()*best.length)]||moves[0];
+}
+function choose(t){
+  if(!isLocalTurn()||!t.el.classList.contains('selectable')||busy||gameOver)return;
+  clearSelect();
+  if(gameMode==='friends'&&!isHost){
+    hostConn?.send({type:'action',action:'move',color:localColor,index:t.index,roll:lastRoll});document.getElementById('status').textContent='Moving character…';return;
+  }
+  moveCharacter(t);
+}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function moveCharacter(t){
+  if(!canMoveToken(t,lastRoll)||busy&&false)return;
+  busy=true;clearSelect();const roll=lastRoll;let captured=false,reachedFinal=false;
+  if(t.progress<0){
+    t.el.classList.add('walking');t.progress=0;t.state='ACTIVE_MAIN_BOARD';layoutAll();broadcastState();playSfx('enter');await wait(350);t.el.classList.remove('walking');
+  }else{
+    for(let s=0;s<roll;s++){
+      t.el.classList.add('walking');t.progress++;t.state=logicalState(t);layoutAll();broadcastState();playSfx('move');await wait(MOVE_MS);
+    }
+    t.el.classList.remove('walking');
+  }
+  updateOpeningAssist();
+  const finalKey=boardKeyAt(t);
+  reachedFinal=t.progress===routes[t.color].length-1;
+  // Only a final landing on a safe square triggers the safe sound.
+  if(finalKey&&SAFE_COORDS.includes(finalKey))playSfx('safe');
+  captured=checkCapture(t);
+  if(captured)playSfx('capture');
+  if(reachedFinal){
+    t.done=true;t.state='FINISHED';layoutAll();await wait(150);playSfx('home');showToast('🏠 Character reached final home! EXTRA ROLL!');
+    if(checkPlayerFinished(t.color)){broadcastState();return;}
+  }else t.state=logicalState(t);
+  broadcastState();
+  if(gameOver)return;
+  // One extra turn only, even if several reward conditions happen together.
+  if(captured||reachedFinal||roll===6){freeRoll(captured?'CAPTURE':reachedFinal?'FINAL HOME':'SIX');}
+  else nextTurn();
+}
+function isProtectedSquare(key){return SAFE_COORDS.includes(key)||landingKeys().includes(key)}
+function checkCapture(t){
+  if(!isMainBoardToken(t))return false;const key=boardKeyAt(t);
+  if(!key||isProtectedSquare(key))return false;
+  const enemies=tokens.filter(o=>o!==t&&!o.done&&o.color!==t.color&&isMainBoardToken(o)&&boardKeyAt(o)===key);
+  // A valid blockade can never be captured.
+  if(enemies.length!==1)return false;
+  const o=enemies[0];o.progress=-1;o.done=false;o.state='BASE';o.rank=null;layoutAll();return true;
+}
+function checkPlayerFinished(color){
+  const all=tokens.filter(t=>t.color===color);
+  if(all.every(t=>t.done)&&!finishedColors.includes(color)){
+    finishedColors.push(color);ranks=[color];gameOver=true;busy=false;rollConsumed=true;clearSelect();
+    updateRanks();playSfx('victory');document.getElementById('status').textContent='🏆 '+color.toUpperCase()+' WINS THE MATCH!';showToast('🏆 '+color.toUpperCase()+' WINS!');updateUI();return true;
+  }
+  return false;
+}
+function updateRanks(){
+  const r=document.getElementById('ranks');
+  if(!ranks.length){r.innerHTML='<div class="rankRow"><div class="badge">—</div>Game in progress</div>';return}
+  const c=ranks[0];r.innerHTML=`<div class="rankRow"><div class="badge">🏆</div><b>WINNER — ${c===localColor?'YOU • ':''}${c.toUpperCase()}</b></div>`;
+}
+function freeRoll(reason='EXTRA'){
+  busy=false;rollConsumed=false;if(gameOver){updateUI();broadcastState();return}
+  const c=activeColor();document.getElementById('status').textContent=`${c.toUpperCase()} gets an extra roll!`;showToast('✨ '+reason+' — EXTRA TURN!');updateUI();broadcastState();
+  if(gameMode==='bots'&&c!=='green')setTimeout(computerTurn,520);
+}
+function updateOpeningAssist(){
+  if(gameMode!=='bots'||gameOver)return;
+  const entered=COLORS.filter(c=>tokens.some(t=>t.color===c&&t.progress>=0));
+  if(!openingAssist.armed&&entered.length>=3){openingAssist.armed=true;openingAssist.missing=COLORS.find(c=>!entered.includes(c))||null;openingAssist.turns=0}
+  if(openingAssist.armed&&(!openingAssist.missing||entered.includes(openingAssist.missing)))openingAssist={armed:false,missing:null,turns:0};
+}
+function nextTurn(){
+  clearSelect();busy=false;rollConsumed=false;lastRoll=0;consecutiveSixes=0;
+  if(gameMode==='bots'&&openingAssist.armed&&openingAssist.missing)openingAssist.turns++;
+  let tries=0;do{current=(current+1)%4;tries++}while((!activeColors.includes(COLORS[current])||finishedColors.includes(COLORS[current]))&&tries<8);
+  if(gameOver)return;updateUI();
+  if(isLocalTurn())document.getElementById('status').textContent='Your turn. Roll the dice.';
+  else if(gameMode==='bots')setTimeout(computerTurn,500);
+  else document.getElementById('status').textContent=(friendPlayers[activeColor()]||'FRIEND')+' is taking their turn.';
+  broadcastState();
+}
+function computerTurn(){
+  if(gameMode!=='bots'||gameOver||rollConsumed||finishedColors.includes(activeColor()))return;
+  const c=activeColor();const forceEntry=openingAssist.armed&&openingAssist.missing===c&&openingAssist.turns>=3&&!tokens.some(t=>t.color===c&&t.progress>=0);
+  document.getElementById('status').textContent=c.toUpperCase()+' is rolling…';authoritativeRoll(forceEntry?6:null);
+}
+
+function matchInProgress(){return !!(gameStarted&&!gameOver)}
+function askExit(action){if(!matchInProgress()){action();return}pendingExitAction=action;document.getElementById('exitModal').classList.add('show')}
+function cancelExit(){pendingExitAction=null;document.getElementById('exitModal').classList.remove('show')}
+function confirmExit(){const a=pendingExitAction;pendingExitAction=null;document.getElementById('exitModal').classList.remove('show');if(a)a()}
+function requestNewGame(){askExit(()=>newGame())}
+function requestSetGameMode(mode){if(mode===gameMode)return;askExit(()=>setGameMode(mode))}
+function requestCreateFriendRoom(){askExit(()=>createFriendRoom())}
+
+function newGame(){
+  tokens.forEach(t=>t.el.remove());current=0;lastRoll=0;busy=false;rollConsumed=false;consecutiveSixes=0;finishedColors=[];ranks=[];gameOver=false;
+  openingAssist={armed:false,missing:null,turns:0};gameStarted=gameMode==='bots';if(gameMode==='bots')activeColors=[...COLORS];
+  createTokens();updateRanks();document.getElementById('dice').textContent='⚄';document.getElementById('status').textContent=gameStarted?'New game! Roll the dice.':'Waiting in the friend lobby.';updateUI();broadcastState();
+}
+function setGameMode(mode){
+  gameMode=mode;document.getElementById('botsModeBtn').classList.toggle('active',mode==='bots');document.getElementById('friendsModeBtn').classList.toggle('active',mode==='friends');document.getElementById('lobby').classList.toggle('show',mode==='friends');
+  if(mode==='bots'){closeNetworking();localColor='green';activeColors=[...COLORS];gameStarted=true;document.getElementById('lobbyStatus').textContent='Play against computer bots.';newGame()}
+  else{gameStarted=false;activeColors=[];document.getElementById('status').textContent='Create a room or open an invite link.';updateUI();autoJoinFromURL();renderLobby()}
+}
+function closeNetworking(){
+  joinAttempt=0;joinConnecting=false;connections.forEach(c=>{try{c.close()}catch(e){}});connections=[];if(hostConn){try{hostConn.close()}catch(e){}}hostConn=null;if(peer){try{peer.destroy()}catch(e){}}peer=null;isHost=false;roomId=null;friendPlayers={};
+}
+
+const PEER_OPTIONS={debug:1,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
+function peerError(e){console.error('Peer error',e);const msg=e?.type||e?.message||'unknown';document.getElementById('lobbyStatus').innerHTML='<span class="waiting">Connection issue: '+msg+'.</span>';showToast('Online connection issue.')}
+function makeRoomId(){return 'ludo-royale-'+Math.random().toString(36).slice(2,10)+'-'+Date.now().toString(36)}
+function roomURL(id){return location.origin+location.pathname+'?join='+encodeURIComponent(id)}
+function createFriendRoom(){
+  if(!window.Peer){showToast('Online library is loading. Please wait and try again.');return}
+  closeNetworking();isHost=true;localColor='green';friendPlayers={green:'HOST'};activeColors=['green'];gameStarted=false;
+  document.getElementById('lobbyStatus').innerHTML='<span class="waiting">Creating private room…</span>';
+  peer=new Peer(makeRoomId(),PEER_OPTIONS);
+  peer.on('open',id=>{roomId=id;document.getElementById('inviteCode').textContent=roomURL(id);document.getElementById('lobbyStatus').innerHTML='<span class="onlineDot"></span>Room ready. Share the invite link and wait for friends to appear below.';document.getElementById('startRoomBtn').classList.add('show');renderLobby()});
+  peer.on('connection',setupHostConnection);
+  peer.on('error',e=>{if(e?.type==='unavailable-id')setTimeout(createFriendRoom,250);else peerError(e)});
+  peer.on('disconnected',()=>{if(isHost)peer.reconnect()});
+}
+function setupHostConnection(conn){
+  conn.on('open',()=>{
+    if(!isHost)return;if(connections.some(x=>x.peer===conn.peer)){try{conn.close()}catch(e){};return}
+    const free=COLORS.find(c=>!activeColors.includes(c));if(!free){conn.send({type:'room-full'});setTimeout(()=>conn.close(),100);return}
+    conn._color=free;connections.push(conn);activeColors.push(free);friendPlayers[free]='FRIEND '+activeColors.length;
+    conn.send({type:'welcome',color:free,host:roomId,players:{...friendPlayers},activeColors:[...activeColors],gameStarted:false});renderLobby();broadcastLobby();
+    document.getElementById('lobbyStatus').innerHTML='<span class="onlineDot"></span>'+activeColors.length+' player(s) in lobby. Invite more friends or press START GAME.';showToast(friendPlayers[free]+' joined the room!');
+  });
+  conn.on('data',data=>{if(data?.type==='join'){if(conn._color)conn.send({type:'welcome',color:conn._color,host:roomId,players:{...friendPlayers},activeColors:[...activeColors],gameStarted});broadcastLobby();return}handleHostData(conn,data)});
+  conn.on('close',()=>{connections=connections.filter(x=>x!==conn);if(conn._color&&!gameStarted){activeColors=activeColors.filter(c=>c!==conn._color);delete friendPlayers[conn._color];renderLobby();broadcastLobby()}});
+  conn.on('error',peerError);
+}
+function handleHostData(conn,data){
+  if(data?.type!=='action'||!gameStarted||gameOver||data.color!==conn._color||activeColor()!==data.color)return;
+  if(data.action==='roll'&&!busy&&!rollConsumed)authoritativeRoll();
+  else if(data.action==='move'&&!busy&&lastRoll===data.roll){
+    const t=tokens.find(x=>x.color===data.color&&x.index===data.index);if(t&&canMoveToken(t,lastRoll))moveCharacter(t);
+  }
+}
+function autoJoinFromURL(){
+  const id=new URLSearchParams(location.search).get('join');if(!id||isHost||hostConn||joinConnecting)return;if(!window.Peer){setTimeout(autoJoinFromURL,350);return}
+  joinConnecting=true;gameMode='friends';document.getElementById('botsModeBtn').classList.remove('active');document.getElementById('friendsModeBtn').classList.add('active');document.getElementById('lobby').classList.add('show');document.getElementById('lobbyStatus').innerHTML='<span class="waiting">Connecting to friend room…</span>';
+  if(peer){try{peer.destroy()}catch(e){}}peer=new Peer(undefined,PEER_OPTIONS);peer.on('open',()=>connectToHost(id));peer.on('error',e=>{if(!hostConn&&joinAttempt<4)retryJoin(id);else peerError(e)});
+}
+function connectToHost(id){
+  try{hostConn=peer.connect(id,{reliable:true,serialization:'json'});hostConn.on('open',()=>{joinConnecting=false;joinAttempt=0;document.getElementById('lobbyStatus').innerHTML='<span class="waiting">Connected. Registering with host…</span>';hostConn.send({type:'join',client:peer.id})});hostConn.on('data',handleGuestData);hostConn.on('error',e=>{if(joinAttempt<4)retryJoin(id);else peerError(e)});hostConn.on('close',()=>{hostConn=null;if(!gameStarted){document.getElementById('lobbyStatus').innerHTML='<span class="waiting">Connection lost. Reconnecting…</span>';retryJoin(id)}else{showToast('Disconnected from host.');document.getElementById('lobbyStatus').textContent='Connection closed.'}})}catch(e){retryJoin(id)}
+}
+function retryJoin(id){joinConnecting=false;if(joinAttempt>=4)return;joinAttempt++;setTimeout(()=>{if(!hostConn&&!isHost){try{peer?.destroy()}catch(e){};peer=null;autoJoinFromURL()}},700*joinAttempt)}
+function handleGuestData(data){
+  if(!data)return;if(data.type==='room-full'){showToast('This room is full.');document.getElementById('lobbyStatus').textContent='This room is full.';return}
+  if(data.type==='welcome'){localColor=data.color;friendPlayers=data.players||{};activeColors=data.activeColors||[data.color];gameStarted=!!data.gameStarted;document.getElementById('createRoomBtn').style.display='none';document.getElementById('copyRoomBtn').style.display='none';document.getElementById('lobbyStatus').innerHTML='<span class="onlineDot"></span>Joined the host lobby! Waiting for the host to start.';renderLobby();updateUI();showToast('You joined as '+localColor.toUpperCase()+'!');return}
+  if(data.type==='lobby'){friendPlayers=data.players||{};activeColors=data.activeColors||[];renderLobby();return}
+  if(data.type==='roll-start'){animateRemoteRoll(data.color);return}
+  if(data.type==='roll-result'){finishRemoteRoll(data.value,data.color);return}
+  if(data.type==='sfx'){playSfx(data.name,true);return}
+  if(data.type==='state'){applyState(data.state);return}
+  if(data.type==='start'){applyState(data.state);gameStarted=true;document.getElementById('lobbyStatus').innerHTML='<span class="onlineDot"></span>Game started — play only your assigned colour.';updateUI();showToast('🎮 Game started!')}
+}
+function renderLobby(){
+  const list=document.getElementById('playersList');if(gameMode!=='friends'){list.innerHTML='';return}
+  list.innerHTML=activeColors.map(c=>`<div class="playerChip"><span style="color:var(${CSSVAR[c]})">●</span> ${friendPlayers[c]||c.toUpperCase()} — ${c.toUpperCase()}</div>`).join('')||'<div class="status">No players yet.</div>';
+  const start=document.getElementById('startRoomBtn');if(isHost){start.classList.add('show');start.disabled=activeColors.length<2;start.textContent=activeColors.length<2?'WAITING FOR FRIEND':'START GAME ('+activeColors.length+' PLAYERS)'}
+}
+function broadcastLobby(){connections.forEach(c=>c.open&&c.send({type:'lobby',players:{...friendPlayers},activeColors:[...activeColors]}))}
+function serializeState(){return{tokens:tokens.map(t=>({color:t.color,index:t.index,progress:t.progress,state:t.state,done:t.done,rank:t.rank})),current,lastRoll,busy,finishedColors,ranks,gameOver,activeColors,friendPlayers,gameStarted,rollConsumed,consecutiveSixes}}
+function applyState(s){
+  if(!s)return;current=s.current;lastRoll=s.lastRoll;busy=!!s.busy;finishedColors=s.finishedColors||[];ranks=s.ranks||[];gameOver=!!s.gameOver;activeColors=s.activeColors||activeColors;friendPlayers=s.friendPlayers||friendPlayers;gameStarted=!!s.gameStarted;rollConsumed=!!s.rollConsumed;consecutiveSixes=s.consecutiveSixes||0;
+  for(const x of s.tokens||[]){const t=tokens.find(q=>q.color===x.color&&q.index===x.index);if(t){const moved=t.progress!==x.progress;t.progress=x.progress;t.done=x.done;t.rank=x.rank;t.state=x.state||logicalState(t);if(moved&&x.progress>=0){t.el.classList.add('walking');setTimeout(()=>t.el.classList.remove('walking'),MOVE_MS+60)}}}
+  if(!remoteRollTimer)document.getElementById('dice').textContent=FACES[Math.max(0,(lastRoll||1)-1)];layoutAll();updateRanks();renderLobby();updateUI();
+  clearSelect();
+  if(gameMode==='friends'&&gameStarted&&!gameOver&&!busy&&isLocalTurn()&&lastRoll&&rollConsumed){
+    const choices=validMoves(localColor,lastRoll);if(choices.length){choices.forEach(t=>t.el.classList.add('selectable'));document.getElementById('status').textContent=lastRoll===6?'You rolled 6! Choose a character.':'Choose a glowing character.'}
+  }
+}
+function broadcastState(){if(gameMode==='friends'&&isHost){const st=serializeState();connections.forEach(c=>c.open&&c.send({type:'state',state:st}))}}
+function startFriendGame(){
+  if(!isHost||activeColors.length<2)return;gameStarted=true;current=0;while(!activeColors.includes(COLORS[current]))current++;busy=false;rollConsumed=false;lastRoll=0;consecutiveSixes=0;finishedColors=[];ranks=[];gameOver=false;
+  tokens.forEach(t=>{t.progress=-1;t.done=false;t.state='BASE';t.rank=null});layoutAll();document.getElementById('status').textContent=isLocalTurn()?'Your turn. Roll the dice.':'Waiting for '+(friendPlayers[activeColor()]||activeColor())+'…';broadcastState();connections.forEach(c=>c.open&&c.send({type:'start',state:serializeState()}));document.getElementById('lobbyStatus').innerHTML='<span class="onlineDot"></span>Game in progress.';updateUI();showToast('🎮 Friend game started!')
+}
+async function inviteGame(){
+  try{if(gameMode!=='friends'||!roomId){showToast('Choose PLAY WITH FRIENDS and CREATE ROOM first.');return}const url=roomURL(roomId);if(navigator.share)await navigator.share({title:'Ludo Royale',text:'Join my private Ludo Royale game!',url});else if(navigator.clipboard){await navigator.clipboard.writeText(url);showToast('Invite link copied!')}else prompt('Copy this invite link:',url)}catch(e){if(e?.name!=='AbortError')showToast('Could not share invite link.')}
+}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.tt);window.tt=setTimeout(()=>t.classList.remove('show'),2200)}
+
+buildRoutes();buildBoard();createTokens();updateRanks();updateUI();
+addEventListener('resize',layoutAll);
+addEventListener('beforeunload',e=>{if(matchInProgress()){e.preventDefault();e.returnValue='';return ''}});
+setTimeout(()=>{if(new URLSearchParams(location.search).get('join'))setGameMode('friends')},200);
+</script>
+</body>
+</html>
